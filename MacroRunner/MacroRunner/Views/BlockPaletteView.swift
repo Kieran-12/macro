@@ -178,19 +178,15 @@ struct PaletteBlockButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 4) {
-                Text(blockType.icon)
-                    .font(.system(size: 11))
-                Text(blockType.label)
-                    .font(.system(size: 9, weight: .medium))
-                    .lineLimit(1)
-                Spacer()
-            }
-            .foregroundColor(.white)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 8)
-            .background(Color(hex: blockType.color))
-            .cornerRadius(4)
+            Text(blockType.label)
+                .font(.system(size: 9, weight: .medium))
+                .multilineTextAlignment(.center)
+                .foregroundColor(.white)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 6)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(Color(hex: blockType.color))
+                .cornerRadius(4)
         }
         .buttonStyle(PlainButtonStyle())
     }
