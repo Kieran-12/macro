@@ -2,67 +2,74 @@ import SwiftUI
 
 struct BlockPaletteView: View {
     @ObservedObject var viewModel: MacroEditorViewModel
+    @State private var selectedCategory: BlockCategory = .motion
     @State private var showBlockDialog = false
     @State private var selectedBlockType: BlockType?
-    @State private var showRecordDialog = false
-    @State private var customBlockName = ""
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("BLOCKS")
+            // Header
+            Text("SCRIPTS")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.top, 15)
                 .padding(.bottom, 10)
 
-            ScrollView {
-                VStack(spacing: 4) {
-                    ForEach(BlockType.allCases.filter { $0 != .custom }, id: \.self) { blockType in
-                        Button(action: {
-                            selectedBlockType = blockType
-                            showBlockDialog = true
-                        }) {
-                            HStack {
-                                Text(blockType.icon)
-                                    .font(.system(size: 12))
-                                Text(blockType.label)
-                                    .font(.system(size: 9))
-                                    .lineLimit(1)
-                                Spacer()
-                            }
-                            .foregroundColor(.black)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 8)
-                            .background(Color(hex: blockType.color))
-                            .cornerRadius(4)
-                        }
-                        .buttonStyle(PlainButtonStyle())
+            HStack(spacing: 0) {
+                // Categories sidebar
+                VStack(spacing: 8) {
+                    ForEach(BlockCategory.allCases, id: \.self) { category in
+                        CategoryButton(
+                            category: category,
+                            isSelected: selectedCategory == category,
+                            onTap: { selectedCategory = category }
+                        )
                     }
                 }
-                .padding(.horizontal, 5)
+                .frame(minWidth: 100, maxWidth: .infinity)
+
+                // Blocks area
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(blocksForCategory(selectedCategory), id: \.self) { blockType in
+                            PaletteBlockButton(blockType: blockType) {
+                                selectedBlockType = blockType
+                                showBlockDialog = true
+                            }
+                        }
+                    }
+                    .padding(5)
+                }
+                .frame(maxWidth: .infinity)
             }
 
             Divider()
                 .background(Color(hex: "#555"))
-                .padding(.vertical, 10)
-
-            // Record Button
-            Button(action: toggleRecording) {
-                HStack {
-                    Text("🎤")
-                        .font(.system(size: 12))
-                    Text(viewModel.isRecording ? "Stop Rec" : "Record")
-                        .font(.system(size: 10, weight: .bold))
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
-                .background(viewModel.isRecording ? Color(hex: "#9C27B0") : Color(hex: "#f44336"))
-                .cornerRadius(4)
+
+            // Record button with F10 hint
+            VStack(spacing: 4) {
+                Button(action: toggleRecording) {
+                    HStack {
+                        Text("REC")
+                            .font(.system(size: 12))
+                        Text(viewModel.isRecording ? "Stop Rec" : "Record")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(viewModel.isRecording ? Color(hex: "#9C27B0") : Color(hex: "#f44336"))
+                    .cornerRadius(4)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Text("F10")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(Color(hex: "#888"))
             }
-            .buttonStyle(PlainButtonStyle())
             .padding(.horizontal, 5)
-            .padding(.bottom, 15)
+            .padding(.bottom, 10)
         }
         .frame(maxHeight: .infinity)
         .background(Color(hex: "#333333"))
@@ -70,6 +77,7 @@ struct BlockPaletteView: View {
             if let blockType = selectedBlockType {
                 BlockDialogView(
                     blockType: blockType,
+                    existingBlock: nil,
                     onSave: { block in
                         viewModel.addBlock(block)
                         showBlockDialog = false
@@ -80,20 +88,10 @@ struct BlockPaletteView: View {
                 )
             }
         }
-        .sheet(isPresented: $showRecordDialog) {
-            RecordCustomBlockDialog(
-                blockName: $customBlockName,
-                onSave: { name, blocks in
-                    viewModel.saveCustomBlock(name: name, blocks: blocks)
-                    showRecordDialog = false
-                    customBlockName = ""
-                },
-                onCancel: {
-                    showRecordDialog = false
-                    customBlockName = ""
-                }
-            )
-        }
+    }
+
+    private func blocksForCategory(_ category: BlockCategory) -> [BlockType] {
+        category.blockTypes
     }
 
     private func toggleRecording() {
@@ -109,68 +107,91 @@ struct BlockPaletteView: View {
     }
 }
 
-struct RecordCustomBlockDialog: View {
-    @Binding var blockName: String
-    let onSave: (String, [Block]) -> Void
-    let onCancel: () -> Void
+enum BlockCategory: String, CaseIterable {
+    case motion = "Motion"
+    case looks = "Looks"
+    case sound = "Sound"
+    case events = "Events"
+    case control = "Control"
+    case input = "Input"
 
-    @State private var blocks: [Block] = []
-    @State private var recorder = MacroRecorder()
-    @State private var isRecording = false
+    var color: String {
+        switch self {
+        case .motion: return "#4A90D9"
+        case .looks: return "#9B59B6"
+        case .sound: return "#E74C3C"
+        case .events: return "#F1C40F"
+        case .control: return "#F39C12"
+        case .input: return "#2ECC71"
+        }
+    }
+
+    var blockTypes: [BlockType] {
+        switch self {
+        case .motion:
+            return [.moveMouse]
+        case .looks:
+            return [.scroll]
+        case .sound:
+            return [.keyPress]
+        case .events:
+            return []
+        case .control:
+            return [.wait, .repeatBlock]
+        case .input:
+            return [.click, .mouseDown, .mouseUp, .holdKey, .releaseKey]
+        }
+    }
+}
+
+struct CategoryButton: View {
+    let category: BlockCategory
+    let isSelected: Bool
+    let onTap: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Record Custom Block")
-                .font(.system(size: 16, weight: .bold))
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color(hex: category.color).opacity(0.3) : Color.clear)
 
-            TextField("Block name", text: $blockName)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(width: 200)
+            VStack(spacing: 6) {
+                Text(category.rawValue)
+                    .font(.system(size: 11, weight: .bold))
 
-            HStack {
-                Button(action: {
-                    if isRecording {
-                        blocks = recorder.stop()
-                        isRecording = false
-                    } else {
-                        recorder.start(mode: .custom(name: blockName))
-                        isRecording = true
-                    }
-                }) {
-                    Text(isRecording ? "Stop Recording" : "Start Recording")
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(isRecording ? Color.red : Color.green)
-                        .cornerRadius(6)
-                }
-                .buttonStyle(PlainButtonStyle())
+                Circle()
+                    .fill(Color(hex: category.color))
+                    .frame(width: 12, height: 12)
             }
-
-            if !blocks.isEmpty {
-                Text("Recorded \(blocks.count) blocks")
-                    .foregroundColor(.green)
-            }
-
-            HStack {
-                Button("Cancel") {
-                    onCancel()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-
-                Button("Save") {
-                    onSave(blockName, blocks)
-                }
-                .disabled(blockName.isEmpty || blocks.isEmpty)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(blockName.isEmpty || blocks.isEmpty ? Color.gray : Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(6)
-            }
+            .foregroundColor(isSelected ? .white : Color(hex: category.color))
         }
-        .padding(30)
-        .frame(width: 350)
+        .frame(width: 100, height: 50)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+    }
+}
+
+struct PaletteBlockButton: View {
+    let blockType: BlockType
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 4) {
+                Text(blockType.icon)
+                    .font(.system(size: 11))
+                Text(blockType.label)
+                    .font(.system(size: 9, weight: .medium))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .foregroundColor(.white)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(Color(hex: blockType.color))
+            .cornerRadius(4)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }

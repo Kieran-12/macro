@@ -47,17 +47,17 @@ enum BlockType: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .click: return "🖱️"
-        case .keyPress: return "⌨️"
-        case .moveMouse: return "🖐️"
-        case .wait: return "⏱️"
-        case .repeatBlock: return "🔁"
-        case .holdKey: return "🔒"
-        case .releaseKey: return "🔓"
-        case .mouseDown: return "⬇️"
-        case .mouseUp: return "⬆️"
-        case .scroll: return "📜"
-        case .custom: return "⚡"
+        case .click: return "click"
+        case .keyPress: return "key"
+        case .moveMouse: return "move"
+        case .wait: return "wait"
+        case .repeatBlock: return "repeat"
+        case .holdKey: return "hold"
+        case .releaseKey: return "release"
+        case .mouseDown: return "down"
+        case .mouseUp: return "up"
+        case .scroll: return "scroll"
+        case .custom: return "custom"
         }
     }
 

@@ -30,6 +30,28 @@ class MacroEditorViewModel: ObservableObject {
                 self?.isRecording = recording
             }
             .store(in: &cancellables)
+
+        // Set up F10 hotkey to toggle recording
+        recorder.onHotkeyPressed = { [weak self] in
+            Task { @MainActor in
+                self?.toggleRecording()
+            }
+        }
+
+        // Start the global hotkey monitor (always running)
+        recorder.startHotkeyMonitor()
+    }
+
+    func toggleRecording() {
+        if recorder.isRecording {
+            stopRecording()
+        } else {
+            if currentMacroName == nil {
+                statusText = "Create or select a macro first"
+                return
+            }
+            startRecording()
+        }
     }
 
     // MARK: - Macro List

@@ -12,12 +12,20 @@ class MacroRecorder: ObservableObject {
         case custom(name: String)
     }
 
+    // F10 key code - used to toggle recording
+    static let hotkeyCode: Int = 109
+
+    // Callback when F10 is pressed during recording
+    var onHotkeyPressed: (() -> Void)?
+
     private var actions: [(type: BlockType, params: [String: AnyCodable], timestamp: TimeInterval)] = []
     private var startTime: Date?
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var lastMousePos: CGPoint?
     private var lastRecordTime: Date?
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
 
     struct RecordedAction {
         let type: BlockType
@@ -36,12 +44,66 @@ class MacroRecorder: ObservableObject {
         lastRecordTime = Date()
 
         startEventTap()
+        // Global monitor should already be running from init
+    }
+
+    func startHotkeyMonitor() {
+        // Start the hotkey monitors - should be called once at app start
+        if globalMonitor == nil {
+            startGlobalMonitor()
+        }
+        if localMonitor == nil {
+            startLocalMonitor()
+        }
+    }
+
+    private func startGlobalMonitor() {
+        // Monitor for F10 globally (works even when app is not focused)
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+            let keyCode = Int(event.keyCode)
+            if keyCode == MacroRecorder.hotkeyCode {
+                DispatchQueue.main.async {
+                    self.onHotkeyPressed?()
+                }
+            }
+        }
+    }
+
+    private func startLocalMonitor() {
+        // Monitor for F10 locally (works when app is focused)
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+            let keyCode = Int(event.keyCode)
+            if keyCode == MacroRecorder.hotkeyCode {
+                DispatchQueue.main.async {
+                    self.onHotkeyPressed?()
+                }
+                return nil // Consume the event
+            }
+            return event
+        }
+    }
+
+    private func stopGlobalMonitor() {
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMonitor = nil
+        }
+    }
+
+    private func stopLocalMonitor() {
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
     }
 
     func stop() -> [Block] {
         isRecording = false
         recordingMode = .none
         stopEventTap()
+        // Don't stop monitors - they should keep running
 
         return convertToBlocks()
     }
@@ -101,8 +163,13 @@ class MacroRecorder: ObservableObject {
 
         switch type {
         case .keyDown:
-            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-            let keyName = keyNameForCode(Int(keyCode))
+            let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
+            // Filter out F10 (hotkey to stop recording)
+            if keyCode == MacroRecorder.hotkeyCode {
+                onHotkeyPressed?()
+                return
+            }
+            let keyName = keyNameForCode(keyCode)
             addAction(type: .keyPress, params: ["key": AnyCodable(keyName)], timestamp: timestamp)
 
         case .leftMouseDown:

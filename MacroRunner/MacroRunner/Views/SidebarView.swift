@@ -197,7 +197,7 @@ struct CustomBlockListItem: View {
     var body: some View {
         Button(action: onDoubleClick) {
             HStack {
-                Text("⚡")
+                Text("*")
                     .font(.system(size: 10))
                 Text(name)
                     .font(.system(size: 9))
