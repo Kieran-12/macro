@@ -1,0 +1,32 @@
+name: MacroRunner
+options:
+  bundleIdPrefix: com.macromacro
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    PRODUCT_BUNDLE_IDENTIFIER: com.macromacro.runner
+
+targets:
+  MacroRunner:
+    type: application
+    platform: macOS
+    sources:
+      - path: MacroRunner
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_NAME: MacroRunner
+        INFOPLIST_FILE: MacroRunner/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MacroRunner/MacroRunner.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: YES
