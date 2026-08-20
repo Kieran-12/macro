@@ -75,7 +75,10 @@ struct SidebarView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
 
-                    Button(action: { showRenameDialog = true }) {
+                    Button(action: {
+                        renameMacroName = viewModel.currentMacroName ?? ""
+                        showRenameDialog = true
+                    }) {
                         Text("Rename")
                             .font(.system(size: 9))
                             .foregroundColor(.black)
