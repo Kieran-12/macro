@@ -160,9 +160,6 @@ struct DraggableBlockView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             mainRow
-            if !block.params.isEmpty {
-                paramsRow
-            }
             if block.type == .repeatBlock {
                 repeatIndicator
             }
@@ -188,9 +185,6 @@ struct DraggableBlockView: View {
                 .foregroundColor(.black.opacity(0.4))
                 .padding(.horizontal, 6)
 
-            Text(block.type.icon)
-                .font(.system(size: 14))
-
             Text(block.type.label)
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.black)
@@ -200,6 +194,17 @@ struct DraggableBlockView: View {
                     .font(.system(size: 10))
                     .foregroundColor(.black.opacity(0.8))
             }
+
+            if block.type == .repeatBlock {
+                Text("count = \(block.params["count"]?.value as? Int ?? 1)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.black.opacity(0.8))
+            }
+
+            Text(formatParams(block.params))
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundColor(.black.opacity(0.8))
+                .padding(.leading, 8)
 
             Spacer()
 
@@ -271,11 +276,40 @@ struct DraggableBlockView: View {
     }
 
     private func formatParams(_ params: [String: AnyCodable]) -> String {
-        params.map { key, value in
-            if key == "count" { return nil }
-            return "\(key)=\(value.value)"
+        var result: [String] = []
+
+        // Ordered params for each block type
+        let orderedKeys: [String]
+        switch block.type {
+        case .moveMouse:
+            orderedKeys = ["x", "y", "move_duration"]
+        case .click:
+            orderedKeys = ["x", "y", "button", "clicks"]
+        case .mouseDown, .mouseUp:
+            orderedKeys = ["x", "y", "button"]
+        case .keyPress, .holdKey, .releaseKey:
+            orderedKeys = ["key"]
+        case .wait:
+            orderedKeys = ["seconds"]
+        case .scroll:
+            orderedKeys = ["amount", "x", "y"]
+        case .custom, .repeatBlock:
+            orderedKeys = []
         }
-        .compactMap { $0 }
-        .joined(separator: ", ")
+
+        for key in orderedKeys {
+            if let value = params[key] {
+                result.append("\(key) = \(value.value)")
+            }
+        }
+
+        // Add any remaining params not in orderedKeys
+        for (key, value) in params {
+            if !orderedKeys.contains(key) && key != "count" {
+                result.append("\(key) = \(value.value)")
+            }
+        }
+
+        return result.joined(separator: "  ")
     }
 }

@@ -3,8 +3,6 @@ import SwiftUI
 struct BlockPaletteView: View {
     @ObservedObject var viewModel: MacroEditorViewModel
     @State private var selectedCategory: BlockCategory = .motion
-    @State private var showBlockDialog = false
-    @State private var selectedBlockType: BlockType?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,8 +31,7 @@ struct BlockPaletteView: View {
                     VStack(spacing: 4) {
                         ForEach(blocksForCategory(selectedCategory), id: \.self) { blockType in
                             PaletteBlockButton(blockType: blockType) {
-                                selectedBlockType = blockType
-                                showBlockDialog = true
+                                addBlockWithDefaults(blockType)
                             }
                         }
                     }
@@ -73,21 +70,49 @@ struct BlockPaletteView: View {
         }
         .frame(maxHeight: .infinity)
         .background(Color(hex: "#333333"))
-        .sheet(isPresented: $showBlockDialog) {
-            if let blockType = selectedBlockType {
-                BlockDialogView(
-                    blockType: blockType,
-                    existingBlock: nil,
-                    onSave: { block in
-                        viewModel.addBlock(block)
-                        showBlockDialog = false
-                    },
-                    onCancel: {
-                        showBlockDialog = false
-                    }
-                )
+    }
+
+    private func addBlockWithDefaults(_ blockType: BlockType) {
+        let block = createDefaultBlock(blockType)
+        viewModel.addBlock(block)
+    }
+
+    private func createDefaultBlock(_ blockType: BlockType) -> Block {
+        var params: [String: AnyCodable] = [:]
+
+        switch blockType {
+        case .click, .mouseDown, .mouseUp:
+            params["x"] = AnyCodable(100)
+            params["y"] = AnyCodable(100)
+            params["button"] = AnyCodable("left")
+            if blockType == .click {
+                params["clicks"] = AnyCodable(1)
             }
+
+        case .keyPress, .holdKey, .releaseKey:
+            params["key"] = AnyCodable("a")
+
+        case .moveMouse:
+            params["x"] = AnyCodable(100)
+            params["y"] = AnyCodable(100)
+            params["move_duration"] = AnyCodable(0.2)
+
+        case .wait:
+            params["seconds"] = AnyCodable(1.0)
+
+        case .repeatBlock:
+            params["count"] = AnyCodable(3)
+
+        case .scroll:
+            params["amount"] = AnyCodable(3)
+            params["x"] = AnyCodable(0)
+            params["y"] = AnyCodable(0)
+
+        case .custom:
+            break
         }
+
+        return Block(type: blockType, params: params)
     }
 
     private func blocksForCategory(_ category: BlockCategory) -> [BlockType] {

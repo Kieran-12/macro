@@ -112,7 +112,10 @@ class MacroEditorViewModel: ObservableObject {
     // MARK: - Blocks
 
     func addBlock(_ block: Block) {
-        guard currentMacroName != nil else { return }
+        guard currentMacroName != nil else {
+            statusText = "Create or select a macro first"
+            return
+        }
         blocks.append(block)
         saveCurrentMacro()
         statusText = "Added \(block.type.label) block"
