@@ -2,30 +2,36 @@ import SwiftUI
 
 struct BlockCanvasView: View {
     @ObservedObject var viewModel: MacroEditorViewModel
-    @State private var showEditDialog = false
-    @State private var editingBlock: Block?
-    @State private var editingBlockIndex: Int = 0
+    @State private var editingBlockId: UUID?
+    @State private var isEditing: Bool = false
+
+    private var editingBlock: Block? {
+        guard let id = editingBlockId else { return nil }
+        return viewModel.blocks.first { $0.id == id }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
             canvasArea
         }
-        .sheet(isPresented: $showEditDialog) {
-            if let block = editingBlock {
-                BlockDialogView(
-                    blockType: block.type,
-                    existingBlock: block,
-                    onSave: { updatedBlock in
-                        viewModel.blocks[editingBlockIndex] = updatedBlock
+        .sheet(isPresented: $isEditing) {
+            BlockEditSheet(
+                blockId: editingBlockId,
+                blocks: viewModel.blocks,
+                onSave: { updatedBlock in
+                    if let idx = viewModel.blocks.firstIndex(where: { $0.id == updatedBlock.id }) {
+                        viewModel.blocks[idx] = updatedBlock
                         viewModel.saveCurrentMacro()
-                        showEditDialog = false
-                    },
-                    onCancel: {
-                        showEditDialog = false
                     }
-                )
-            }
+                    isEditing = false
+                    editingBlockId = nil
+                },
+                onCancel: {
+                    isEditing = false
+                    editingBlockId = nil
+                }
+            )
         }
     }
 
@@ -86,23 +92,123 @@ struct BlockCanvasView: View {
 
     private var blockList: some View {
         LazyVStack(spacing: 8) {
-            ForEach(Array(viewModel.blocks.enumerated()), id: \.element.id) { index, block in
-                DraggableBlockView(
+            ForEach(viewModel.blocks) { block in
+                BlockRowView(
                     block: block,
-                    index: index,
                     isRecording: viewModel.isRecording,
                     isPlaying: viewModel.isPlaying,
-                    onDelete: { viewModel.deleteBlock(at: index) },
-                    onEdit: {
-                        editingBlock = block
-                        editingBlockIndex = index
-                        showEditDialog = true
+                    onDelete: {
+                        if editingBlockId == block.id {
+                            isEditing = false
+                            editingBlockId = nil
+                        }
+                        if let idx = viewModel.blocks.firstIndex(where: { $0.id == block.id }) {
+                            viewModel.deleteBlock(at: idx)
+                        }
                     },
-                    onMoveUp: index > 0 ? { viewModel.moveBlock(from: IndexSet(integer: index), to: index - 1) } : nil,
-                    onMoveDown: index < viewModel.blocks.count - 1 ? { viewModel.moveBlock(from: IndexSet(integer: index), to: index + 2) } : nil
+                    onEdit: {
+                        editingBlockId = block.id
+                        isEditing = true
+                    }
                 )
             }
         }
+    }
+}
+
+struct BlockRowView: View {
+    let block: Block
+    let isRecording: Bool
+    let isPlaying: Bool
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 12))
+                .foregroundColor(.black.opacity(0.4))
+                .padding(.horizontal, 6)
+
+            Text(block.type.label)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(.black)
+
+            if block.type == .custom, let name = block.name {
+                Text(": \(name)")
+                    .font(.system(size: 10))
+                    .foregroundColor(.black.opacity(0.8))
+            }
+
+            if block.type == .repeatBlock {
+                Text("count = \(block.params["count"]?.value as? Int ?? 1)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.black.opacity(0.8))
+            }
+
+            Text(formatBlockParams(block))
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundColor(.black.opacity(0.8))
+                .padding(.leading, 8)
+
+            Spacer()
+
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 11))
+                    .foregroundColor(.black.opacity(0.6))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal, 4)
+
+            Button(action: onDelete) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .padding(.horizontal, 4)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(Color(hex: block.type.color))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(isPlaying ? Color.yellow : Color.white, lineWidth: isPlaying ? 3 : 2)
+        )
+        .cornerRadius(4)
+    }
+
+    private func formatBlockParams(_ block: Block) -> String {
+        var result: [String] = []
+        let orderedKeys: [String]
+        switch block.type {
+        case .moveMouse:
+            orderedKeys = ["x", "y", "move_duration"]
+        case .click:
+            orderedKeys = ["x", "y", "button", "clicks"]
+        case .mouseDown, .mouseUp:
+            orderedKeys = ["x", "y", "button"]
+        case .keyPress, .holdKey, .releaseKey:
+            orderedKeys = ["key"]
+        case .wait:
+            orderedKeys = ["seconds"]
+        case .scroll:
+            orderedKeys = ["amount", "x", "y"]
+        case .custom, .repeatBlock:
+            orderedKeys = []
+        }
+        for key in orderedKeys {
+            if let value = block.params[key] {
+                result.append("\(key) = \(value.value)")
+            }
+        }
+        for (key, value) in block.params {
+            if !orderedKeys.contains(key) && key != "count" {
+                result.append("\(key) = \(value.value)")
+            }
+        }
+        return result.joined(separator: "  ")
     }
 }
 
@@ -147,169 +253,30 @@ struct StartFlagView: View {
     }
 }
 
-struct DraggableBlockView: View {
-    let block: Block
-    let index: Int
-    let isRecording: Bool
-    let isPlaying: Bool
-    let onDelete: () -> Void
-    let onEdit: () -> Void
-    let onMoveUp: (() -> Void)?
-    let onMoveDown: (() -> Void)?
+struct BlockEditSheet: View {
+    let blockId: UUID?
+    let blocks: [Block]
+    let onSave: (Block) -> Void
+    let onCancel: () -> Void
+
+    private var block: Block? {
+        guard let id = blockId else { return nil }
+        return blocks.first { $0.id == id }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            mainRow
-            if block.type == .repeatBlock {
-                repeatIndicator
-            }
-            if !block.children.isEmpty {
-                childrenList
-            }
-        }
-        .background(Color(hex: block.type.color))
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(isPlaying ? Color.yellow : Color.white, lineWidth: isPlaying ? 3 : 2)
-        )
-        .cornerRadius(4)
-        .onTapGesture(count: 2) {
-            onEdit()
-        }
-    }
-
-    private var mainRow: some View {
-        HStack(spacing: 0) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12))
-                .foregroundColor(.black.opacity(0.4))
-                .padding(.horizontal, 6)
-
-            Text(block.type.label)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.black)
-
-            if block.type == .custom, let name = block.name {
-                Text(": \(name)")
-                    .font(.system(size: 10))
-                    .foregroundColor(.black.opacity(0.8))
-            }
-
-            if block.type == .repeatBlock {
-                Text("count = \(block.params["count"]?.value as? Int ?? 1)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.black.opacity(0.8))
-            }
-
-            Text(formatParams(block.params))
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(.black.opacity(0.8))
-                .padding(.leading, 8)
-
-            Spacer()
-
-            Text("#\(index + 1)")
-                .font(.system(size: 9))
-                .foregroundColor(.black.opacity(0.5))
-
-            Button(action: onEdit) {
-                Image(systemName: "pencil")
-                    .font(.system(size: 11))
-                    .foregroundColor(.black.opacity(0.6))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .padding(.horizontal, 4)
-
-            Button(action: onDelete) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color(hex: "#ff6b6b"))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .padding(.horizontal, 4)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-    }
-
-    private var paramsRow: some View {
-        Text(formatParams(block.params))
-            .font(.system(size: 9, design: .monospaced))
-            .foregroundColor(.black.opacity(0.8))
-            .padding(.horizontal, 30)
-            .padding(.bottom, 4)
-    }
-
-    private var repeatIndicator: some View {
-        HStack(spacing: 4) {
-            Text("↳")
-                .font(.system(size: 10))
-                .foregroundColor(.black.opacity(0.5))
-            Text("Repeat \((block.params["count"]?.value as? Int) ?? 1)×")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.black)
-            Spacer()
-        }
-        .padding(.horizontal, 30)
-        .padding(.bottom, 4)
-    }
-
-    private var childrenList: some View {
-        VStack(spacing: 4) {
-            ForEach(Array(block.children.enumerated()), id: \.element.id) { childIndex, child in
-                HStack(spacing: 0) {
-                    Text("    ↳")
-                        .font(.system(size: 10))
-                        .foregroundColor(.black.opacity(0.4))
-                    Text(child.type.icon)
-                        .font(.system(size: 10))
-                    Text(child.type.label)
-                        .font(.system(size: 9))
-                        .foregroundColor(.black.opacity(0.8))
-                    Spacer()
+        if let block = block {
+            BlockDialogView(
+                blockType: block.type,
+                existingBlock: block,
+                onSave: onSave,
+                onCancel: onCancel
+            )
+        } else {
+            Color.clear
+                .onAppear {
+                    onCancel()
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 3)
-            }
         }
-        .padding(.bottom, 4)
-    }
-
-    private func formatParams(_ params: [String: AnyCodable]) -> String {
-        var result: [String] = []
-
-        // Ordered params for each block type
-        let orderedKeys: [String]
-        switch block.type {
-        case .moveMouse:
-            orderedKeys = ["x", "y", "move_duration"]
-        case .click:
-            orderedKeys = ["x", "y", "button", "clicks"]
-        case .mouseDown, .mouseUp:
-            orderedKeys = ["x", "y", "button"]
-        case .keyPress, .holdKey, .releaseKey:
-            orderedKeys = ["key"]
-        case .wait:
-            orderedKeys = ["seconds"]
-        case .scroll:
-            orderedKeys = ["amount", "x", "y"]
-        case .custom, .repeatBlock:
-            orderedKeys = []
-        }
-
-        for key in orderedKeys {
-            if let value = params[key] {
-                result.append("\(key) = \(value.value)")
-            }
-        }
-
-        // Add any remaining params not in orderedKeys
-        for (key, value) in params {
-            if !orderedKeys.contains(key) && key != "count" {
-                result.append("\(key) = \(value.value)")
-            }
-        }
-
-        return result.joined(separator: "  ")
     }
 }
