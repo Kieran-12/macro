@@ -21,7 +21,7 @@ struct BlockDialogView: View {
 
     var body: some View {
         VStack(spacing: 15) {
-            Text("\(blockType.icon) \(blockType.label)")
+            Text(blockType.label)
                 .font(.system(size: 16, weight: .bold))
 
             VStack(alignment: .leading, spacing: 10) {
@@ -298,7 +298,8 @@ struct BlockDialogView: View {
         }
 
         if let existing = existingBlock {
-            return Block(type: blockType, params: params, children: existing.children, name: existing.name)
+            // Preserve the original block's ID when saving
+            return Block(id: existing.id, type: blockType, params: params, children: existing.children, name: existing.name)
         }
         return Block(type: blockType, params: params)
     }

@@ -177,6 +177,9 @@ struct BlockRowView: View {
                 .stroke(isPlaying ? Color.yellow : Color.white, lineWidth: isPlaying ? 3 : 2)
         )
         .cornerRadius(4)
+        .onTapGesture(count: 2) {
+            onEdit()
+        }
     }
 
     private func formatBlockParams(_ block: Block) -> String {
@@ -207,6 +210,9 @@ struct BlockRowView: View {
             if !orderedKeys.contains(key) && key != "count" {
                 result.append("\(key) = \(value.value)")
             }
+        }
+        if result.isEmpty {
+            return "Empty Parameters"
         }
         return result.joined(separator: "  ")
     }

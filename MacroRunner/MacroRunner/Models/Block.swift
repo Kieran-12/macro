@@ -81,6 +81,14 @@ struct Block: Identifiable, Codable, Equatable {
         self.name = name
     }
 
+    init(id: UUID, type: BlockType, params: [String: AnyCodable] = [:], children: [Block] = [], name: String? = nil) {
+        self.id = id
+        self.type = type
+        self.params = params
+        self.children = children
+        self.name = name
+    }
+
     static func == (lhs: Block, rhs: Block) -> Bool {
         return lhs.id == rhs.id
     }

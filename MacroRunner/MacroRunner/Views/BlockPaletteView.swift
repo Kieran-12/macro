@@ -78,41 +78,8 @@ struct BlockPaletteView: View {
     }
 
     private func createDefaultBlock(_ blockType: BlockType) -> Block {
-        var params: [String: AnyCodable] = [:]
-
-        switch blockType {
-        case .click, .mouseDown, .mouseUp:
-            params["x"] = AnyCodable(100)
-            params["y"] = AnyCodable(100)
-            params["button"] = AnyCodable("left")
-            if blockType == .click {
-                params["clicks"] = AnyCodable(1)
-            }
-
-        case .keyPress, .holdKey, .releaseKey:
-            params["key"] = AnyCodable("a")
-
-        case .moveMouse:
-            params["x"] = AnyCodable(100)
-            params["y"] = AnyCodable(100)
-            params["move_duration"] = AnyCodable(0.2)
-
-        case .wait:
-            params["seconds"] = AnyCodable(1.0)
-
-        case .repeatBlock:
-            params["count"] = AnyCodable(3)
-
-        case .scroll:
-            params["amount"] = AnyCodable(3)
-            params["x"] = AnyCodable(0)
-            params["y"] = AnyCodable(0)
-
-        case .custom:
-            break
-        }
-
-        return Block(type: blockType, params: params)
+        // Create block with empty params - user must edit to set values
+        return Block(type: blockType, params: [:])
     }
 
     private func blocksForCategory(_ category: BlockCategory) -> [BlockType] {

@@ -201,6 +201,13 @@ class MacroEditorViewModel: ObservableObject {
             statusText = "No blocks to play"
             return
         }
+
+        // Validate blocks have required params
+        if let invalidBlock = findBlockWithInvalidParams() {
+            statusText = "Cannot run: \(invalidBlock.type.label) has empty parameters"
+            return
+        }
+
         isPlaying = true
         progress = 0
         statusText = "Playing macro..."
@@ -227,5 +234,48 @@ class MacroEditorViewModel: ObservableObject {
         player.stop()
         isPlaying = false
         statusText = "Stopped"
+    }
+
+    private func findBlockWithInvalidParams() -> Block? {
+        for block in blocks {
+            if let invalid = findInvalidBlockInList(block: block) {
+                return invalid
+            }
+        }
+        return nil
+    }
+
+    private func findInvalidBlockInList(block: Block) -> Block? {
+        // Check if this block has invalid params
+        if block.type == .click || block.type == .mouseDown || block.type == .mouseUp {
+            if block.params["x"] == nil || block.params["y"] == nil {
+                return block
+            }
+        } else if block.type == .moveMouse {
+            if block.params["x"] == nil || block.params["y"] == nil {
+                return block
+            }
+        } else if block.type == .keyPress || block.type == .holdKey || block.type == .releaseKey {
+            if block.params["key"] == nil {
+                return block
+            }
+        } else if block.type == .wait {
+            if block.params["seconds"] == nil {
+                return block
+            }
+        } else if block.type == .scroll {
+            if block.params["amount"] == nil {
+                return block
+            }
+        }
+
+        // Check children of repeat blocks
+        for child in block.children {
+            if let invalid = findInvalidBlockInList(block: child) {
+                return invalid
+            }
+        }
+
+        return nil
     }
 }
