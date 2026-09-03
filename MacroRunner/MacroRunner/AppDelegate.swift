@@ -9,7 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         viewModel = MacroEditorViewModel.create()
         setupMenu()
 
-        let contentView = ContentView(viewModel: viewModel)
+        let mainContentView = ContentView(viewModel: viewModel)
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 750),
@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.center()
         window.setFrameAutosaveName("MacroRunnerMainWindow")
-        window.contentView = NSHostingView(rootView: contentView)
+        window.contentView = NSHostingView(rootView: mainContentView)
         window.title = "Macro Runner"
         window.minSize = NSSize(width: 900, height: 600)
         window.makeKeyAndOrderFront(nil)
@@ -67,6 +67,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         windowMenu.addItem(NSMenuItem.separator())
         windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
 
+        // View menu
+        let viewMenuItem = NSMenuItem()
+        mainMenu.addItem(viewMenuItem)
+        let viewMenu = NSMenu(title: "View")
+        viewMenuItem.submenu = viewMenu
+        viewMenu.addItem(withTitle: "Show Mouse Position", action: #selector(showMousePosition(_:)), keyEquivalent: "")
+
         NSApplication.shared.mainMenu = mainMenu
         NSApplication.shared.windowsMenu = windowMenu
     }
@@ -77,6 +84,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func redo(_ sender: Any?) {
         viewModel.undoManager.redo()
+    }
+
+    @objc func showMousePosition(_ sender: Any?) {
+        MousePositionMonitor.shared.show()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

@@ -21,6 +21,7 @@
 		DDEA512EEC99D9DE67474923 /* MacroEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6563890A8659873F6E06BB1 /* MacroEditorViewModel.swift */; };
 		EBB3DF6AA550C50DE2FABD03 /* PlaybackControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F789EA167C50978165A776 /* PlaybackControlsView.swift */; };
 		ED4013653F72141549117FA6 /* BlockPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C97745FCEE463AB2966FA5C /* BlockPaletteView.swift */; };
+		FFB1D95B282D3C38BB8D9C22 /* MousePositionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C27430E0C07E9238BB6C7B9 /* MousePositionPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 		456AA6DB1877AC7C3ACC622B /* MacroStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacroStorage.swift; sourceTree = "<group>"; };
 		4F9509A7FD10D409E3D6BC9B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		58F789EA167C50978165A776 /* PlaybackControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackControlsView.swift; sourceTree = "<group>"; };
+		5C27430E0C07E9238BB6C7B9 /* MousePositionPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MousePositionPanel.swift; sourceTree = "<group>"; };
 		5C97745FCEE463AB2966FA5C /* BlockPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPaletteView.swift; sourceTree = "<group>"; };
 		67DC31FC3B6FCAE889991CFB /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		755B3CFEC4DC1441B6B51B57 /* MacroPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacroPlayer.swift; sourceTree = "<group>"; };
@@ -70,6 +72,7 @@
 				1BD835CF2D06ECA1FEE42B99 /* BlockDialogView.swift */,
 				5C97745FCEE463AB2966FA5C /* BlockPaletteView.swift */,
 				411E89DE70F942ECACF5241C /* ContentView.swift */,
+				5C27430E0C07E9238BB6C7B9 /* MousePositionPanel.swift */,
 				58F789EA167C50978165A776 /* PlaybackControlsView.swift */,
 				67DC31FC3B6FCAE889991CFB /* SidebarView.swift */,
 			);
@@ -184,6 +187,7 @@
 				263C6685D3E80EAF9A757FB0 /* MacroPlayer.swift in Sources */,
 				4DFACE2593B4B2F51A5A6CCF /* MacroRecorder.swift in Sources */,
 				2F483DA9F997DBDFEFAB09ED /* MacroStorage.swift in Sources */,
+				FFB1D95B282D3C38BB8D9C22 /* MousePositionPanel.swift in Sources */,
 				EBB3DF6AA550C50DE2FABD03 /* PlaybackControlsView.swift in Sources */,
 				7C0E78AB7561E368791BD536 /* SidebarView.swift in Sources */,
 				DB648618B1EB724FFDCDCEAE /* main.swift in Sources */,
