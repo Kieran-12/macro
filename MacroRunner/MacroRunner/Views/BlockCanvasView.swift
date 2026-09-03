@@ -125,33 +125,47 @@ struct BlockRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12))
-                .foregroundColor(.black.opacity(0.4))
-                .padding(.horizontal, 6)
+            // Double-tap target - only the content area, excluding buttons
+            ZStack {
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        onEdit()
+                    }
 
-            Text(block.type.label)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.black)
+                HStack(spacing: 0) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 12))
+                        .foregroundColor(.black.opacity(0.4))
+                        .padding(.horizontal, 6)
 
-            if block.type == .custom, let name = block.name {
-                Text(": \(name)")
-                    .font(.system(size: 10))
-                    .foregroundColor(.black.opacity(0.8))
+                    Text(block.type.label)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.black)
+
+                    if block.type == .custom, let name = block.name {
+                        Text(": \(name)")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black.opacity(0.8))
+                    }
+
+                    if block.type == .repeatBlock {
+                        Text("count = \(block.params["count"]?.value as? Int ?? 1)")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.black.opacity(0.8))
+                    }
+
+                    Text(formatBlockParams(block))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.black.opacity(0.8))
+                        .padding(.leading, 8)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
             }
-
-            if block.type == .repeatBlock {
-                Text("count = \(block.params["count"]?.value as? Int ?? 1)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.black.opacity(0.8))
-            }
-
-            Text(formatBlockParams(block))
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(.black.opacity(0.8))
-                .padding(.leading, 8)
-
-            Spacer()
 
             Button(action: onEdit) {
                 Image(systemName: "pencil")
@@ -169,17 +183,12 @@ struct BlockRowView: View {
             .buttonStyle(PlainButtonStyle())
             .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
         .background(Color(hex: block.type.color))
         .overlay(
             RoundedRectangle(cornerRadius: 4)
                 .stroke(isPlaying ? Color.yellow : Color.white, lineWidth: isPlaying ? 3 : 2)
         )
         .cornerRadius(4)
-        .onTapGesture(count: 2) {
-            onEdit()
-        }
     }
 
     private func formatBlockParams(_ block: Block) -> String {
