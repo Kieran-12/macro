@@ -149,46 +149,58 @@ class MacroPlayer {
         return keyMap[key.lowercased()] ?? 0
     }
 
+    private func getDouble(_ param: AnyCodable?) -> Double? {
+        guard let param = param else { return nil }
+        if let d = param.value as? Double {
+            return d
+        } else if let i = param.value as? Int {
+            return Double(i)
+        }
+        return nil
+    }
+
     private func executeMoveMouse(params: [String: AnyCodable]) {
         guard let screen = NSScreen.main else { return }
         let screenHeight = screen.frame.height
 
         let x = (params["x"]?.value as? Int) ?? 0
         let y = (params["y"]?.value as? Int) ?? 0
-        let duration = max((params["move_duration"]?.value as? Double) ?? 0.2, 0.01)
+        let duration = getDouble(params["move_duration"]) ?? 0.2
         // User enters top-left origin coordinates, convert to CGEvent bottom-left
         let targetY = screenHeight - CGFloat(y)
         let targetX = CGFloat(x)
 
-        let steps = 30
-        let semaphore = DispatchSemaphore(value: 0)
         let startPos = currentMousePos
+        let tx = targetX
+        let ty = targetY
+
+        // Debug output
+        print("Move mouse: duration=\(duration)s, from=(\(startPos.x),\(startPos.y)) to=(\(tx),\(ty))")
+
+        // Number of steps and time per step
+        let steps = 60
+        let stepDuration = duration / Double(steps)
+        print("  stepDuration=\(stepDuration)s, steps=\(steps)")
+
+        // Run on main thread synchronously
+        let group = DispatchGroup()
+        group.enter()
 
         DispatchQueue.main.async {
-            let startTime = Date()
-
-            for i in 1...steps {
-                let elapsed = Date().timeIntervalSince(startTime)
-                let t = min(elapsed / duration, 1.0)
-                let newX = startPos.x + (targetX - startPos.x) * t
-                let newY = startPos.y + (targetY - startPos.y) * t
+            print("  Starting move on main thread")
+            for step in 1...steps {
+                let t = Double(step) / Double(steps)
+                let newX = startPos.x + (tx - startPos.x) * CGFloat(t)
+                let newY = startPos.y + (ty - startPos.y) * CGFloat(t)
 
                 CGWarpMouseCursorPosition(CGPoint(x: newX, y: newY))
-
-                let stepDuration = duration / Double(steps)
-                let nextStepTime = startTime.addingTimeInterval(stepDuration * Double(i))
-                let waitTime = nextStepTime.timeIntervalSinceNow
-                if waitTime > 0 {
-                    Thread.sleep(forTimeInterval: waitTime)
-                }
+                Thread.sleep(forTimeInterval: stepDuration)
             }
-
-            // Ensure final position
-            CGWarpMouseCursorPosition(CGPoint(x: targetX, y: targetY))
-            semaphore.signal()
+            print("  Finished move")
+            group.leave()
         }
 
-        semaphore.wait()
+        group.wait()
 
         // Update current position after move completes
         currentMousePos = CGPoint(x: targetX, y: targetY)

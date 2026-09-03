@@ -236,6 +236,8 @@ struct BlockDialogView: View {
         }
         if let durVal = block.params["move_duration"]?.value as? Double {
             duration = String(durVal)
+        } else if let durVal = block.params["move_duration"]?.value as? Int {
+            duration = String(durVal)
         }
         if let secVal = block.params["seconds"]?.value as? Double {
             seconds = String(secVal)
