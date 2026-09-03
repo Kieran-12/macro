@@ -13,7 +13,10 @@ class MacroPlayer {
         let total = countBlocks(blocks: blocks)
         var current = 0
 
-        executeBlocks(blocks: blocks, progressCallback: progressCallback, current: &current, total: total)
+        // Capture mouse position on main thread before starting
+        let startPos = getMousePosition()
+
+        executeBlocks(blocks: blocks, progressCallback: progressCallback, current: &current, total: total, capturedMousePos: startPos)
 
         isRunning = false
     }
@@ -22,25 +25,25 @@ class MacroPlayer {
         stopFlag = true
     }
 
-    private func executeBlocks(blocks: [Block], progressCallback: ((Int, Int) -> Void)?, current: inout Int, total: Int) {
+    private func executeBlocks(blocks: [Block], progressCallback: ((Int, Int) -> Void)?, current: inout Int, total: Int, capturedMousePos: CGPoint) {
         for block in blocks {
             if stopFlag { return }
 
-            executeBlock(block: block, current: &current, total: total, progressCallback: progressCallback)
+            executeBlock(block: block, current: &current, total: total, progressCallback: progressCallback, capturedMousePos: capturedMousePos)
 
             if block.type == .repeatBlock {
                 let count = (block.params["count"]?.value as? Int) ?? 1
                 for _ in 0..<count {
                     if stopFlag { return }
-                    executeBlocks(blocks: block.children, progressCallback: progressCallback, current: &current, total: total)
+                    executeBlocks(blocks: block.children, progressCallback: progressCallback, current: &current, total: total, capturedMousePos: capturedMousePos)
                 }
             } else if block.type == .custom {
-                executeBlocks(blocks: block.children, progressCallback: progressCallback, current: &current, total: total)
+                executeBlocks(blocks: block.children, progressCallback: progressCallback, current: &current, total: total, capturedMousePos: capturedMousePos)
             }
         }
     }
 
-    private func executeBlock(block: Block, current: inout Int, total: Int, progressCallback: ((Int, Int) -> Void)?) {
+    private func executeBlock(block: Block, current: inout Int, total: Int, progressCallback: ((Int, Int) -> Void)?, capturedMousePos: CGPoint) {
         guard !stopFlag else { return }
 
         current += 1
@@ -58,7 +61,7 @@ class MacroPlayer {
         case .releaseKey:
             executeReleaseKey(params: block.params)
         case .moveMouse:
-            executeMoveMouse(params: block.params)
+            executeMoveMouse(params: block.params, startPos: capturedMousePos)
         case .wait:
             executeWait(params: block.params)
         case .mouseDown:
@@ -145,33 +148,23 @@ class MacroPlayer {
         return keyMap[key.lowercased()] ?? 0
     }
 
-    private func executeMoveMouse(params: [String: AnyCodable]) {
+    private func executeMoveMouse(params: [String: AnyCodable], startPos: CGPoint) {
+        guard let screen = NSScreen.main else { return }
+        let screenHeight = screen.frame.height
+
         let x = (params["x"]?.value as? Int) ?? 0
         let y = (params["y"]?.value as? Int) ?? 0
-        let duration = (params["move_duration"]?.value as? Double) ?? 0.2
+        // User enters top-left origin coordinates, convert to CGEvent bottom-left
+        let targetY = screenHeight - CGFloat(y)
+        let targetX = CGFloat(x)
 
-        if duration > 0 {
-            let startPos = currentMousePosition()
-            let steps = max(Int(duration * 30), 1)
-            for i in 1...steps {
-                let t = Double(i) / Double(steps)
-                let newX = CGFloat(startPos.x) + CGFloat(x - Int(startPos.x)) * t
-                let newY = CGFloat(startPos.y) + CGFloat(y - Int(startPos.y)) * t
-                if let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: CGPoint(x: newX, y: newY), mouseButton: .left) {
-                    event.post(tap: .cghidEventTap)
-                }
-                usleep(UInt32(duration * 1_000_000 / Double(steps)))
-            }
-        } else {
-            if let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: .left) {
-                event.post(tap: .cghidEventTap)
-            }
-        }
+        CGWarpMouseCursorPosition(CGPoint(x: targetX, y: targetY))
     }
 
-    private func currentMousePosition() -> CGPoint {
-        let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: .zero, mouseButton: .left)
-        return event?.location ?? .zero
+    private func getMousePosition() -> CGPoint {
+        let mouseLoc = NSEvent.mouseLocation
+        // NSEvent uses bottom-left origin (y from bottom), same as CGEvent
+        return CGPoint(x: mouseLoc.x, y: mouseLoc.y)
     }
 
     private func executeWait(params: [String: AnyCodable]) {
