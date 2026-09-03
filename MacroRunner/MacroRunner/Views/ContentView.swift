@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = MacroEditorViewModel()
+    @ObservedObject var viewModel: MacroEditorViewModel
 
     var body: some View {
         HStack(spacing: 0) {

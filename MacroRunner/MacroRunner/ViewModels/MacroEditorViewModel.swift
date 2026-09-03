@@ -4,6 +4,10 @@ import Combine
 
 @MainActor
 class MacroEditorViewModel: ObservableObject {
+    static func create() -> MacroEditorViewModel {
+        return MacroEditorViewModel()
+    }
+
     @Published var macroNames: [String] = []
     @Published var customBlockNames: [String] = []
     @Published var currentMacroName: String?
@@ -13,6 +17,8 @@ class MacroEditorViewModel: ObservableObject {
     @Published var progress: Double = 0
     @Published var isPlaying: Bool = false
     @Published var speed: Double = 1.0
+
+    let undoManager = UndoManager()
 
     private let storage = MacroStorage.shared
     let recorder = MacroRecorder()
@@ -116,21 +122,78 @@ class MacroEditorViewModel: ObservableObject {
             statusText = "Create or select a macro first"
             return
         }
+        let index = blocks.count
         blocks.append(block)
         saveCurrentMacro()
+
+        // Register undo
+        undoManager.registerUndo(withTarget: self) { [block = block, index = index] target in
+            if index < target.blocks.count {
+                target.blocks.remove(at: index)
+                target.saveCurrentMacro()
+                target.statusText = "Undone: Added \(block.type.label)"
+            }
+        }
+
         statusText = "Added \(block.type.label) block"
     }
 
     func deleteBlock(at index: Int) {
         guard index >= 0 && index < blocks.count else { return }
+        let removedBlock = blocks[index]
         blocks.remove(at: index)
         saveCurrentMacro()
+
+        // Register undo
+        undoManager.registerUndo(withTarget: self) { [removedBlock = removedBlock, index = index] target in
+            target.blocks.insert(removedBlock, at: min(index, target.blocks.count))
+            target.saveCurrentMacro()
+            target.statusText = "Undone: Deleted \(removedBlock.type.label)"
+        }
+
         statusText = "Deleted block #\(index + 1)"
     }
 
     func moveBlock(from source: IndexSet, to destination: Int) {
+        guard let sourceIndex = source.first else { return }
+        let fromIndex = sourceIndex
+        let toIndex = destination > fromIndex ? destination - 1 : destination
+
+        // Store the block being moved for undo
+        let movedBlock = blocks[fromIndex]
+
         blocks.move(fromOffsets: source, toOffset: destination)
         saveCurrentMacro()
+
+        // Register undo
+        undoManager.registerUndo(withTarget: self) { [movedBlock = movedBlock, fromIndex = fromIndex] target in
+            // Find current position and move back
+            if let currentPos = target.blocks.firstIndex(where: { $0.id == movedBlock.id }) {
+                let undoFrom = currentPos
+                let undoTo = fromIndex > currentPos ? fromIndex + 1 : fromIndex
+                target.blocks.move(fromOffsets: IndexSet(integer: undoFrom), toOffset: undoTo)
+                target.saveCurrentMacro()
+                target.statusText = "Undone: Move block"
+            }
+        }
+    }
+
+    func editBlock(id: UUID, newBlock: Block) {
+        guard let index = blocks.firstIndex(where: { $0.id == id }) else { return }
+        let oldBlock = blocks[index]
+        blocks[index] = newBlock
+        saveCurrentMacro()
+
+        // Register undo
+        undoManager.registerUndo(withTarget: self) { [oldBlock = oldBlock, id = id, newBlock = newBlock] target in
+            if let idx = target.blocks.firstIndex(where: { $0.id == id }) {
+                target.blocks[idx] = oldBlock
+                target.saveCurrentMacro()
+                target.statusText = "Undone: Edit \(newBlock.type.label)"
+            }
+        }
+
+        statusText = "Edited \(newBlock.type.label)"
     }
 
     func saveCurrentMacro() {

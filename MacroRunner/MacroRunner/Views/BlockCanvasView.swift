@@ -20,10 +20,7 @@ struct BlockCanvasView: View {
                 blockId: editingBlockId,
                 blocks: viewModel.blocks,
                 onSave: { updatedBlock in
-                    if let idx = viewModel.blocks.firstIndex(where: { $0.id == updatedBlock.id }) {
-                        viewModel.blocks[idx] = updatedBlock
-                        viewModel.saveCurrentMacro()
-                    }
+                    viewModel.editBlock(id: updatedBlock.id, newBlock: updatedBlock)
                     isEditing = false
                     editingBlockId = nil
                 },

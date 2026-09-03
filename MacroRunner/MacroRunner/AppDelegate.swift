@@ -3,11 +3,13 @@ import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
+    var viewModel: MacroEditorViewModel!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        viewModel = MacroEditorViewModel.create()
         setupMenu()
 
-        let contentView = ContentView()
+        let contentView = ContentView(viewModel: viewModel)
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 750),
@@ -44,8 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let editMenu = NSMenu(title: "Edit")
         editMenuItem.submenu = editMenu
 
-        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        let undoItem = editMenu.addItem(withTitle: "Undo", action: #selector(undo(_:)), keyEquivalent: "z")
+        undoItem.target = self
+        let redoItem = editMenu.addItem(withTitle: "Redo", action: #selector(redo(_:)), keyEquivalent: "Z")
+        redoItem.target = self
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
@@ -65,6 +69,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApplication.shared.mainMenu = mainMenu
         NSApplication.shared.windowsMenu = windowMenu
+    }
+
+    @objc func undo(_ sender: Any?) {
+        viewModel.undoManager.undo()
+    }
+
+    @objc func redo(_ sender: Any?) {
+        viewModel.undoManager.redo()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
