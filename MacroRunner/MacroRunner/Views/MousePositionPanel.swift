@@ -122,11 +122,15 @@ class MousePositionMonitor {
     }
 
     private func updatePositionFromMouseLocation() {
+        // Use CGEvent to get actual cursor position (works during programmatic movement)
+        let event = CGEvent(source: nil)
+        guard let event = event else { return }
+        let point = event.location
+        // CGEvent uses top-left origin, convert to bottom-left (Q1 Cartesian: 0,0 at bottom-left)
         guard let screen = NSScreen.main else { return }
-        let mouseLoc = NSEvent.mouseLocation
-        // Convert to top-left origin (user-friendly coordinates)
-        let x = Int(mouseLoc.x)
-        let y = Int(screen.frame.height - mouseLoc.y)
+        let screenHeight = screen.frame.height
+        let x = Int(point.x)
+        let y = Int(screenHeight - point.y)
 
         DispatchQueue.main.async { [weak self] in
             self?.panel?.updatePosition(x: x, y: y)

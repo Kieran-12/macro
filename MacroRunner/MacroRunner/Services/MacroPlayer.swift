@@ -6,10 +6,12 @@ class MacroPlayer {
     var speed: Double = 1.0
     private(set) var isRunning: Bool = false
     private var stopFlag: Bool = false
-    private var currentMousePos: CGPoint = .zero
+    private(set) var currentMousePos: CGPoint = .zero
+    private(set) var isPlaybackActive: Bool = false
 
     func execute(blocks: [Block], progressCallback: ((Int, Int) -> Void)? = nil) {
         isRunning = true
+        isPlaybackActive = true
         stopFlag = false
         let total = countBlocks(blocks: blocks)
         var current = 0
@@ -20,6 +22,7 @@ class MacroPlayer {
         executeBlocks(blocks: blocks, progressCallback: progressCallback, current: &current, total: total)
 
         isRunning = false
+        isPlaybackActive = false
     }
 
     func stop() {
@@ -79,6 +82,9 @@ class MacroPlayer {
     }
 
     private func executeClick(params: [String: AnyCodable]) {
+        guard let screen = NSScreen.main else { return }
+        let screenHeight = screen.frame.height
+
         guard let x = params["x"]?.value as? Int,
               let y = params["y"]?.value as? Int else { return }
         let button = (params["button"]?.value as? String) ?? "left"
@@ -91,13 +97,16 @@ class MacroPlayer {
         default: mouseButton = .left
         }
 
-        let ourEvent = CGEvent(mouseEventSource: nil, mouseType: clicks > 1 ? .leftMouseDown : .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
+        // Stored coordinates are Q1 Cartesian (bottom-left), convert to CGEvent (top-left)
+        let eventY = screenHeight - CGFloat(y)
+
+        let ourEvent = CGEvent(mouseEventSource: nil, mouseType: clicks > 1 ? .leftMouseDown : .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
         ourEvent?.post(tap: .cghidEventTap)
 
         if clicks > 1 {
             for _ in 1..<clicks {
-                let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
-                let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
+                let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
+                let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
                 down?.post(tap: .cghidEventTap)
                 usleep(50000)
                 up?.post(tap: .cghidEventTap)
@@ -105,8 +114,9 @@ class MacroPlayer {
             }
         }
 
-        let upEvent = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
+        let upEvent = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
         upEvent?.post(tap: .cghidEventTap)
+        currentMousePos = CGPoint(x: x, y: y)
     }
 
     private func executeKeyPress(params: [String: AnyCodable]) {
@@ -166,9 +176,9 @@ class MacroPlayer {
         let x = (params["x"]?.value as? Int) ?? 0
         let y = (params["y"]?.value as? Int) ?? 0
         let duration = getDouble(params["move_duration"]) ?? 0.2
-        // User enters top-left origin coordinates, convert to CGEvent bottom-left
-        let targetY = screenHeight - CGFloat(y)
+        // Stored coordinates are Q1 Cartesian (bottom-left), convert to CGWarpMouseCursorPosition (top-left)
         let targetX = CGFloat(x)
+        let targetY = screenHeight - CGFloat(y)
 
         let startPos = currentMousePos
         let tx = targetX
@@ -194,6 +204,7 @@ class MacroPlayer {
                 let newY = startPos.y + (ty - startPos.y) * CGFloat(t)
 
                 CGWarpMouseCursorPosition(CGPoint(x: newX, y: newY))
+                self.currentMousePos = CGPoint(x: newX, y: newY)
                 Thread.sleep(forTimeInterval: stepDuration)
             }
             print("  Finished move")
@@ -204,6 +215,11 @@ class MacroPlayer {
 
         // Update current position after move completes
         currentMousePos = CGPoint(x: targetX, y: targetY)
+    }
+
+    func getCurrentCursorPosition() -> CGPoint {
+        guard let event = CGEvent(source: nil) else { return .zero }
+        return event.location
     }
 
     private func getMousePosition() -> CGPoint {
@@ -218,6 +234,9 @@ class MacroPlayer {
     }
 
     private func executeMouseDown(params: [String: AnyCodable]) {
+        guard let screen = NSScreen.main else { return }
+        let screenHeight = screen.frame.height
+
         let x = (params["x"]?.value as? Int) ?? 0
         let y = (params["y"]?.value as? Int) ?? 0
         let button = (params["button"]?.value as? String) ?? "left"
@@ -229,11 +248,18 @@ class MacroPlayer {
         default: mouseButton = .left
         }
 
-        let event = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
+        // Stored coordinates are Q1 Cartesian (bottom-left), convert to CGEvent (top-left)
+        let eventY = screenHeight - CGFloat(y)
+
+        let event = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
         event?.post(tap: .cghidEventTap)
+        currentMousePos = CGPoint(x: x, y: y)
     }
 
     private func executeMouseUp(params: [String: AnyCodable]) {
+        guard let screen = NSScreen.main else { return }
+        let screenHeight = screen.frame.height
+
         let x = (params["x"]?.value as? Int) ?? 0
         let y = (params["y"]?.value as? Int) ?? 0
         let button = (params["button"]?.value as? String) ?? "left"
@@ -245,8 +271,12 @@ class MacroPlayer {
         default: mouseButton = .left
         }
 
-        let event = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: CGFloat(y)), mouseButton: mouseButton)
+        // Stored coordinates are Q1 Cartesian (bottom-left), convert to CGEvent (top-left)
+        let eventY = screenHeight - CGFloat(y)
+
+        let event = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: CGPoint(x: CGFloat(x), y: eventY), mouseButton: mouseButton)
         event?.post(tap: .cghidEventTap)
+        currentMousePos = CGPoint(x: x, y: y)
     }
 
     private func executeScroll(params: [String: AnyCodable]) {

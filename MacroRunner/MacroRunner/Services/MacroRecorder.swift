@@ -161,6 +161,10 @@ class MacroRecorder: ObservableObject {
 
         let timestamp = Date().timeIntervalSince(startTime)
 
+        // Convert CGEvent coordinates (top-left origin) to Q1 Cartesian (bottom-left origin)
+        let screenHeight = NSScreen.main?.frame.height ?? 0
+        let convertY: (CGFloat) -> Int = { y in Int(screenHeight - y) }
+
         switch type {
         case .keyDown:
             let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
@@ -176,7 +180,7 @@ class MacroRecorder: ObservableObject {
             let pos = event.location
             addAction(type: .click, params: [
                 "x": AnyCodable(Int(pos.x)),
-                "y": AnyCodable(Int(pos.y)),
+                "y": AnyCodable(convertY(pos.y)),
                 "button": AnyCodable("left"),
                 "clicks": AnyCodable(1)
             ], timestamp: timestamp)
@@ -185,7 +189,7 @@ class MacroRecorder: ObservableObject {
             let pos = event.location
             addAction(type: .click, params: [
                 "x": AnyCodable(Int(pos.x)),
-                "y": AnyCodable(Int(pos.y)),
+                "y": AnyCodable(convertY(pos.y)),
                 "button": AnyCodable("right"),
                 "clicks": AnyCodable(1)
             ], timestamp: timestamp)
@@ -194,7 +198,7 @@ class MacroRecorder: ObservableObject {
             let pos = event.location
             addAction(type: .click, params: [
                 "x": AnyCodable(Int(pos.x)),
-                "y": AnyCodable(Int(pos.y)),
+                "y": AnyCodable(convertY(pos.y)),
                 "button": AnyCodable("middle"),
                 "clicks": AnyCodable(1)
             ], timestamp: timestamp)
@@ -206,7 +210,7 @@ class MacroRecorder: ObservableObject {
                 if distance > 3 {
                     addAction(type: .moveMouse, params: [
                         "x": AnyCodable(Int(pos.x)),
-                        "y": AnyCodable(Int(pos.y))
+                        "y": AnyCodable(convertY(pos.y))
                     ], timestamp: timestamp)
                     lastMousePos = pos
                 }
